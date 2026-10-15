@@ -1,0 +1,138 @@
+/* Tablet: narrower panels, same tools.
+   Mobile: the panels become bottom sheets so the scene keeps the whole screen. */
+
+@media (max-width: 1180px) {
+  :root {
+    --panel-left: 196px;
+    --panel-right: 268px;
+    --gutter: 10px;
+  }
+
+  .brand__tag {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    /* minmax(0, 1fr): the scene keeps the leftover space, the sheet can never squeeze it out. */
+    grid-template-rows: var(--bar-top) minmax(120px, 1fr) auto var(--bar-bottom);
+    grid-template-areas:
+      'top'
+      'canvas'
+      'left'
+      'bottom';
+  }
+
+  :root {
+    --bar-top: 50px;
+  }
+
+  /* The top bar hands the panel toggles over to the bottom bar to make room. */
+  .topbar__toggles {
+    display: none;
+  }
+
+  .bottombar__toggles {
+    display: flex;
+  }
+
+  .bottombar__hints {
+    display: none;
+  }
+
+  .bottombar {
+    gap: 14px;
+  }
+
+  .panel {
+    grid-area: left;
+    width: auto;
+    border-right: none;
+    border-top: 1px solid var(--hairline);
+    max-height: min(46vh, 380px);
+    padding: 12px;
+  }
+
+  .panel--right {
+    grid-area: left;
+  }
+
+  .panel[hidden] {
+    display: none;
+  }
+
+  /* Only one sheet at a time on a phone. */
+  .panel--left[hidden],
+  .panel--right[hidden] {
+    display: none;
+  }
+
+  .toasts {
+    bottom: calc(var(--bar-bottom) + 60px);
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  .topbar__divider,
+  .composition__seed {
+    display: none;
+  }
+
+  .composition {
+    gap: 6px;
+  }
+
+  .composition__name {
+    min-width: 64px;
+    max-width: 110px;
+    padding: 3px 5px;
+    font-size: 12px;
+  }
+
+  .topbar__actions {
+    gap: 4px;
+  }
+
+  /* The readout the spec asks for stays; the extra selection chip goes. */
+  .readout--selection {
+    display: none;
+  }
+
+  .btn__label {
+    display: none;
+  }
+
+  .btn {
+    padding: 0 9px;
+  }
+
+  .brand__name {
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-indent: 0.22em;
+  }
+}
+
+@media (max-height: 620px) {
+  .panel {
+    max-height: min(52vh, 320px);
+  }
+}
+
+/* Landscape phones: the scene keeps the screen, the sheet becomes a short drawer. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .panel {
+    max-height: min(46vh, 230px);
+  }
+
+  .app {
+    grid-template-rows: 46px minmax(96px, 1fr) auto 34px;
+  }
+}

@@ -1,0 +1,55 @@
+/* AFTERFORM — design tokens.
+   One neutral scale, one accent, hairline weights. Nothing decorative. */
+
+:root {
+  /* Type */
+  --font-display: 'Space Grotesk Variable', 'Helvetica Neue', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* Neutral scale — warm graphite, never pure black */
+  --ink-000: #060708;
+  --ink-100: #0b0c0d;
+  --ink-200: #131416;
+  --ink-300: #1c1e20;
+  --ink-400: #2a2c2f;
+  --ink-500: #3d4043;
+
+  --text: #eceae7;
+  --text-dim: rgba(236, 234, 231, 0.58);
+  --text-faint: rgba(236, 234, 231, 0.34);
+  --text-ghost: rgba(236, 234, 231, 0.16);
+
+  --hairline: rgba(236, 234, 231, 0.1);
+  --hairline-strong: rgba(236, 234, 231, 0.2);
+
+  /* Accent — driven from the lighting controls at runtime */
+  --accent: #ff6a3d;
+  --accent-soft: color-mix(in srgb, var(--accent) 22%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 55%, transparent);
+
+  /* Panels */
+  --panel: rgba(11, 12, 13, 0.74);
+  --panel-solid: rgba(11, 12, 13, 0.94);
+  --panel-blur: blur(20px) saturate(130%);
+  --shadow-panel: 0 18px 48px rgba(0, 0, 0, 0.42);
+
+  /* Metrics */
+  --bar-top: 54px;
+  --bar-bottom: 38px;
+  --panel-left: 236px;
+  --panel-right: 312px;
+  --gutter: 14px;
+  --radius: 2px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 0.68, 0.24, 1);
+  --dur-fast: 120ms;
+  --dur-base: 220ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+  }
+}

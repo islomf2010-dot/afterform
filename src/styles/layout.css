@@ -1,0 +1,214 @@
+/* Application shell: a fixed viewport tool with the canvas bleeding underneath. */
+
+.app {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: var(--bar-top) 1fr var(--bar-bottom);
+  grid-template-areas:
+    'top top top'
+    'left canvas right'
+    'bottom bottom bottom';
+  overflow: hidden;
+}
+
+/* A soft vignette keeps the eye in the middle of the composition and hides the horizon seam. */
+.app::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background:
+    radial-gradient(120% 90% at 50% 45%, transparent 42%, rgba(0, 0, 0, 0.28) 100%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.28), transparent 16%, transparent 84%, rgba(0, 0, 0, 0.3));
+  transition: opacity var(--dur-base) var(--ease);
+}
+
+.scene-canvas {
+  position: absolute !important;
+  inset: 0;
+  z-index: 0;
+  touch-action: none;
+}
+
+.canvas-region {
+  grid-area: canvas;
+  position: relative;
+  z-index: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Top bar                                                             */
+/* ------------------------------------------------------------------ */
+
+.topbar {
+  grid-area: top;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 var(--gutter);
+  background: var(--panel);
+  backdrop-filter: var(--panel-blur);
+  -webkit-backdrop-filter: var(--panel-blur);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.brand__mark {
+  width: 7px;
+  height: 7px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-soft);
+  transition: background var(--dur-base) var(--ease);
+}
+
+.brand__name {
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  color: var(--text);
+}
+
+.brand__tag {
+  color: var(--text-ghost);
+  letter-spacing: 0.2em;
+  text-indent: 0;
+}
+
+.topbar__divider {
+  width: 1px;
+  height: 22px;
+  background: var(--hairline);
+  flex-shrink: 0;
+}
+
+.composition {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.composition__name {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom-color: var(--hairline);
+  padding: 3px 8px;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  min-width: 120px;
+  max-width: 340px;
+  border-radius: var(--radius);
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.composition__name:hover {
+  border-bottom-color: var(--hairline-strong);
+}
+
+.composition__name:focus {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--hairline-strong);
+  border-bottom-color: var(--accent);
+}
+
+.composition__seed {
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.topbar__toggles {
+  display: flex;
+  gap: 6px;
+}
+
+.bottombar__toggles {
+  display: none;
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Bottom bar                                                          */
+/* ------------------------------------------------------------------ */
+
+.bottombar {
+  grid-area: bottom;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 0 var(--gutter);
+  background: var(--panel);
+  backdrop-filter: var(--panel-blur);
+  -webkit-backdrop-filter: var(--panel-blur);
+  border-top: 1px solid var(--hairline);
+  color: var(--text-faint);
+  overflow: hidden;
+}
+
+.readout {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.readout__value {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.readout__value--accent {
+  color: var(--accent);
+}
+
+.bottombar__hints {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  white-space: nowrap;
+}
+
+.keyhint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+kbd {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  padding: 2px 5px;
+  border: 1px solid var(--hairline);
+  border-bottom-color: var(--hairline-strong);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.03);
+  white-space: nowrap;
+}

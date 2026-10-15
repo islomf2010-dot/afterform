@@ -1,0 +1,48 @@
+{
+  "name": "afterform",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AFTERFORM — an interactive generative architecture laboratory. Architecture beyond reality.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 4173",
+    "typecheck": "tsc -b --force",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "e2e:install": "playwright install --with-deps chromium",
+    "preview:svg": "esbuild scripts/preview.ts --bundle --platform=node --format=esm --outfile=.shots/_preview.mjs --log-level=warning && node .shots/_preview.mjs",
+    "verify": "esbuild scripts/verify.ts --bundle --platform=node --format=esm --outfile=.shots/_verify.mjs --external:@playwright/test --log-level=warning && node .shots/_verify.mjs",
+    "shots": "esbuild scripts/shots.ts --bundle --platform=node --format=esm --outfile=.shots/_shots.mjs --external:@playwright/test --log-level=warning && node .shots/_shots.mjs",
+    "looks": "esbuild scripts/looks.ts --bundle --platform=node --format=esm --outfile=.shots/_looks.mjs --external:@playwright/test --log-level=warning && node .shots/_looks.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/space-grotesk": "5.3.0",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@react-three/drei": "10.7.9",
+    "@react-three/fiber": "9.8.1",
+    "lucide-react": "0.545.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.186.1",
+    "three-stdlib": "^2.36.1",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/node": "24.10.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "jsdom": "26.1.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "4.1.11"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
