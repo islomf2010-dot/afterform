@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { BottomBar } from './components/BottomBar';
+import { IntroGate } from './components/IntroGate';
 import { RightPanel } from './components/RightPanel';
 import { SidePanel } from './components/SidePanel';
 import { Toasts } from './components/Toasts';
@@ -41,18 +42,37 @@ export function App() {
     [requestExport, saveJson, openFile],
   );
 
-  useHotkeys(hotkeys);
+  // Guarded: the studio keys must not fire behind the title sequence.
+  const phase = useUiStore((s) => s.phase);
+  const guarded = useMemo(() => {
+    if (phase === 'studio') return hotkeys;
+    return {
+      generate: () => {},
+      reset: () => {},
+      exportPng: () => {},
+      saveJson: () => {},
+      openFile: () => {},
+      focusCamera: () => {},
+      addObject: () => {},
+    };
+  }, [hotkeys, phase]);
+
+  useHotkeys(guarded);
+
+  // The chrome is withheld until the studio is entered: the title sequence owns the screen.
+  const inStudio = phase === 'studio';
 
   return (
-    <main className="app">
-      <TopBar />
-      <SidePanel />
+    <main className={`app${inStudio ? '' : ' app--intro'}`}>
+      {inStudio && <TopBar />}
+      {inStudio && <SidePanel />}
       <div className="canvas-region" data-scene-ready={sceneReady ? 'true' : 'false'}>
         <SceneCanvas />
       </div>
-      <RightPanel />
-      <BottomBar />
-      <Toasts />
+      {inStudio && <RightPanel />}
+      {inStudio && <BottomBar />}
+      <IntroGate />
+      {inStudio && <Toasts />}
       <StatusLine />
     </main>
   );

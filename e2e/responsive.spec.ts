@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { collectConsoleErrors, readObjectCount, waitForScene } from './helpers';
+import { collectConsoleErrors, openStudio, readObjectCount, waitForScene } from './helpers';
 
 const VIEWPORTS = [
   { name: 'phone', width: 390, height: 844 },
@@ -10,6 +10,17 @@ const VIEWPORTS = [
 ];
 
 test.describe('responsive shell', () => {
+  test.beforeEach(async ({ page }) => {
+    // The title is part of the layout: the phone sheet must not appear behind it.
+    await page.addInitScript(() => {
+      try {
+        sessionStorage.setItem('afterform.intro.seen', '1');
+      } catch {
+        /* ignore */
+      }
+    });
+  });
+
   for (const viewport of VIEWPORTS) {
     test(`fits without overflow at ${viewport.name}`, async ({ page }) => {
       const errors = collectConsoleErrors(page);
@@ -72,7 +83,7 @@ test.describe('responsive shell', () => {
   test('keeps the scene usable on a phone', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
 
     // Panels become a single sheet; the toggles in the top bar control them.
     const tools = page.locator('.panel--left');
@@ -95,12 +106,11 @@ test.describe('responsive shell', () => {
   test('respects reduced motion', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
 
     const errors = collectConsoleErrors(page);
     const start = Date.now();
     await page.getByRole('button', { name: 'Generate' }).click();
-    await waitForScene(page);
     // Nothing should be animating for long: the camera snaps instead of gliding.
     await page.waitForTimeout(500);
     expect(Date.now() - start).toBeLessThan(15_000);

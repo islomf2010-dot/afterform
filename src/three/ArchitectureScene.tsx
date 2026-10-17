@@ -10,7 +10,9 @@ import { EnvironmentRig } from './EnvironmentRig';
 import { ExportBridge } from './ExportBridge';
 import { GroundRig } from './GroundRig';
 import { LightingRig } from './LightingRig';
+import { ContactShadowRig } from './ContactShadowRig';
 import { SelectionMarker } from './SelectionMarker';
+import { SkyDome } from './SkyDome';
 import { StructureField } from './StructureField';
 
 /**
@@ -23,14 +25,15 @@ export function ArchitectureScene() {
 
   return (
     <>
-      {/* Background and fog values are owned by AtmosphereRig so they can be interpolated. */}
-      <color attach="background" args={[LIGHTING_MODES[lighting].background]} />
+      {/* The gradient dome is the visible background; fog only carries depth. */}
       <fogExp2 attach="fog" args={[LIGHTING_MODES[lighting].fogColor, 0.01]} />
 
+      <SkyDome />
       <AtmosphereRig />
       <EnvironmentRig />
       <LightingRig />
       <GroundRig />
+      <ContactShadowRig />
       <StructureField objects={objects} preset={MATERIAL_PRESETS[material]} />
       <SelectionMarker />
       <CameraRig />

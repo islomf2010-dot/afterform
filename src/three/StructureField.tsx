@@ -7,6 +7,7 @@ import {
   Color,
   DynamicDrawUsage,
   EdgesGeometry,
+  Euler,
   FrontSide,
   InstancedMesh,
   Matrix4,
@@ -16,16 +17,18 @@ import {
 } from 'three';
 import { buildPartIndex } from '@/lib/parts';
 import type { PartInstance } from '@/lib/parts';
-import type { MaterialPreset } from '@/lib/presets';
+import type { MaterialPreset, ToneMaterial } from '@/lib/presets';
 import { useSceneStore } from '@/store/sceneStore';
 import { useUiStore } from '@/store/uiStore';
-import type { ArchObject } from '@/types/scene';
+import type { ArchObject, Tone } from '@/types/scene';
+import { TONES } from '@/types/scene';
 import { UNIT_BOX } from './geometry';
 
 const UNIT_EDGES = new EdgesGeometry(UNIT_BOX);
 
 const MATRIX = new Matrix4();
 const QUAT = new Quaternion();
+const EULER = new Euler();
 const POSITION = new Vector3();
 const SCALE = new Vector3();
 const HIT = new Vector3();
@@ -48,67 +51,108 @@ interface Props {
   preset: MaterialPreset;
 }
 
+interface ToneGroup {
+  tone: Tone;
+  /** Slice of `ordered` — one InstancedMesh, one entry point for picking. */
+  start: number;
+  count: number;
+  mesh: InstancedMesh | null;
+  progress: Float32Array;
+  edges: BufferGeometry | null;
+}
+
+type DragHandlers = {
+  onPointerDown: (event: ThreeEvent<PointerEvent>, objectId: string) => void;
+  onPointerMove: (event: ThreeEvent<PointerEvent>) => void;
+  onPointerUp: () => void;
+};
+
 /**
- * Renders the whole composition as one InstancedMesh — a single draw call regardless of how many
- * elements the generator produced. Selection and editing happen through instanceId, which keeps
- * picking exact and cheap.
+ * Renders the composition as one InstancedMesh per material family.
+ *
+ * Three tones means three draw calls instead of one — still nothing — and it is what gives the
+ * image its value structure: a dark base, light masses, and an accent catching the light.
  */
 export function StructureField({ objects, preset }: Props) {
-  const parts = useMemo(() => buildPartIndex(objects), [objects]);
-  const meshRef = useRef<InstancedMesh>(null);
+  // Parts are grouped by material family before anything else touches them: each group owns a
+  // contiguous slice of this array, so picking and the edge overlay stay in step with rendering.
+  const { ordered, groups } = useMemo(() => {
+    const all = buildPartIndex(objects);
+    const buckets = new Map<Tone, PartInstance[]>(TONES.map((tone) => [tone, []]));
+    for (const part of all) buckets.get(part.tone)?.push(part);
+
+    const ordered: PartInstance[] = [];
+    const groups: ToneGroup[] = TONES.map((tone) => {
+      const items = buckets.get(tone) ?? [];
+      const start = ordered.length;
+      ordered.push(...items);
+      return { tone, start, count: items.length, mesh: null, progress: new Float32Array(1), edges: null };
+    });
+    return { ordered, groups };
+  }, [objects]);
+
   const drag = useRef<DragState | null>(null);
 
   const select = useSceneStore((s) => s.select);
   const updateObject = useSceneStore((s) => s.updateObject);
   const reducedMotion = useUiStore((s) => s.reducedMotion);
   const invalidate = useThree((s) => s.invalidate);
-  const clock = useThree((s) => s.clock);
   const controls = useThree((s) => s.controls) as { enabled: boolean } | null;
 
-  /* ---- entrance animation ---------------------------------------- */
+  /* ---- entrance progress, one array per group --------------------- */
 
-  /** Per element entrance progress, kept in a ref so it never triggers React renders. */
-  const progress = useMemo(() => new Float32Array(Math.max(1, parts.length)).fill(1), [parts.length]);
-  const startTime = useRef(0);
+  useLayoutEffect(() => {
+    for (const group of groups) {
+      const progress = new Float32Array(Math.max(1, group.count));
+      progress.fill(reducedMotion ? 1 : 0);
+      group.progress = progress;
+    }
+  }, [groups, reducedMotion]);
+
+  /* ---- write the instance matrices --------------------------------- */
 
   const writeMatrices = () => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-    for (let i = 0; i < parts.length; i++) {
-      composePartMatrix(parts[i], progress[i] ?? 1, MATRIX);
-      mesh.setMatrixAt(i, MATRIX);
+    for (const group of groups) {
+      const mesh = group.mesh;
+      if (!mesh) continue;
+      for (let i = 0; i < group.count; i++) {
+        const part = ordered[group.start + i];
+        if (!part) continue;
+        composePartMatrix(part, group.progress[i] ?? 1, MATRIX);
+        mesh.setMatrixAt(i, MATRIX);
+      }
+      mesh.count = group.count;
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
     }
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
   };
 
   useLayoutEffect(() => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-    mesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    mesh.count = parts.length;
-    progress.fill(reducedMotion ? 1 : 0);
-    startTime.current = clock.getElapsedTime();
+    for (const group of groups) {
+      if (!group.mesh) continue;
+      group.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+    }
     writeMatrices();
     invalidate();
-  }, [parts, reducedMotion, progress, clock, invalidate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordered, groups, reducedMotion]);
 
   useFrame((state) => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
     let animating = false;
-    const elapsed = state.clock.elapsedTime - startTime.current;
-    for (let i = 0; i < parts.length; i++) {
-      if (progress[i] >= 1) continue;
-      animating = true;
-      progress[i] = easeOutCubic(clamp01((elapsed - (i % 28) * STAGGER) / ENTRANCE_DURATION));
+    const elapsed = state.clock.elapsedTime;
+    for (const group of groups) {
+      for (let i = 0; i < group.count; i++) {
+        if (group.progress[i] >= 1) continue;
+        animating = true;
+        group.progress[i] = easeOutCubic(clamp01((elapsed - (i % 28) * STAGGER) / ENTRANCE_DURATION));
+      }
     }
     if (!animating) return;
     writeMatrices();
     invalidate();
   });
 
-  /* ---- selection + dragging -------------------------------------- */
+  /* ---- selection + dragging ---------------------------------------- */
 
   const beginDrag = (event: ThreeEvent<PointerEvent>, objectId: string) => {
     event.stopPropagation();
@@ -169,40 +213,57 @@ export function StructureField({ objects, preset }: Props) {
     invalidate();
   }, [objects, invalidate]);
 
-  /* ---- glass edge overlay ---------------------------------------- */
-
-  const edgeGeometry = useMemo(() => (preset.transparent ? buildEdgeGeometry(parts) : null), [parts, preset.transparent]);
+  /* ---- edge overlay for transparent families ----------------------- */
 
   useEffect(() => {
-    return () => edgeGeometry?.dispose();
-  }, [edgeGeometry]);
+    for (const group of groups) {
+      const geometry = preset.tones[group.tone].transparent ? buildEdgeGeometry(ordered, group.start, group.count) : null;
+      group.edges?.dispose();
+      group.edges = geometry;
+    }
+    return () => {
+      for (const group of groups) group.edges?.dispose();
+    };
+  }, [groups, ordered, preset]);
 
-  const edgeColor = useMemo(() => new Color(preset.edge), [preset.edge]);
+  const handlers: DragHandlers = { onPointerDown: beginDrag, onPointerMove: moveDrag, onPointerUp: endDrag };
 
   return (
     <group>
-      <instancedMesh
-        ref={meshRef}
-        args={[UNIT_BOX, undefined, Math.max(1, parts.length)]}
-        castShadow={!preset.transparent}
-        receiveShadow={!preset.transparent}
-        frustumCulled={false}
-        renderOrder={preset.transparent ? 2 : 0}
-        onPointerDown={(event) => {
-          const id = event.instanceId === undefined ? undefined : parts[event.instanceId]?.objectId;
-          if (id) beginDrag(event, id);
-        }}
-        onPointerMove={moveDrag}
-        onPointerUp={endDrag}
-      >
-        <meshPhysicalMaterial {...materialProps(preset)} />
-      </instancedMesh>
+      {groups.map((group) => {
+        const tone = preset.tones[group.tone];
+        if (group.count === 0) return null;
+        return (
+          <group key={group.tone}>
+            <instancedMesh
+              ref={(mesh: InstancedMesh | null) => {
+                // Assignment only: writing here would race the grouping effect on rebuilds.
+                group.mesh = mesh;
+              }}
+              args={[UNIT_BOX, undefined, Math.max(1, group.count)]}
+              castShadow={!tone.transparent}
+              receiveShadow={!tone.transparent}
+              frustumCulled={false}
+              renderOrder={tone.transparent ? 2 : 0}
+              onPointerDown={(event) => {
+                if (event.instanceId === undefined) return;
+                const part = ordered[group.start + event.instanceId];
+                if (part) handlers.onPointerDown(event, part.objectId);
+              }}
+              onPointerMove={handlers.onPointerMove}
+              onPointerUp={handlers.onPointerUp}
+            >
+              <meshPhysicalMaterial {...materialProps(tone)} />
+            </instancedMesh>
 
-      {edgeGeometry && (
-        <lineSegments geometry={edgeGeometry} renderOrder={3} frustumCulled={false}>
-          <lineBasicMaterial color={edgeColor} transparent opacity={preset.edgeOpacity} depthWrite={false} />
-        </lineSegments>
-      )}
+            {group.edges && (
+              <lineSegments geometry={group.edges} renderOrder={3} frustumCulled={false}>
+                <lineBasicMaterial color={new Color(preset.edge)} transparent opacity={preset.edgeOpacity} depthWrite={false} />
+              </lineSegments>
+            )}
+          </group>
+        );
+      })}
     </group>
   );
 }
@@ -211,34 +272,34 @@ export function StructureField({ objects, preset }: Props) {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-export function materialProps(preset: MaterialPreset) {
+export function materialProps(tone: ToneMaterial) {
   return {
-    color: preset.color,
-    roughness: preset.roughness,
-    metalness: preset.metalness,
-    clearcoat: preset.clearcoat,
-    clearcoatRoughness: preset.clearcoatRoughness,
-    transparent: preset.transparent,
-    opacity: preset.opacity,
-    envMapIntensity: preset.envMapIntensity,
-    depthWrite: !preset.transparent,
+    color: tone.color,
+    roughness: tone.roughness,
+    metalness: tone.metalness,
+    clearcoat: tone.clearcoat,
+    clearcoatRoughness: tone.clearcoatRoughness,
+    transparent: tone.transparent,
+    opacity: tone.opacity,
+    envMapIntensity: tone.envMapIntensity,
+    depthWrite: !tone.transparent,
     side: FrontSide,
   };
 }
 
-/** Every box edge of every part in one buffer — one draw call instead of hundreds. */
-function buildEdgeGeometry(parts: readonly PartInstance[]): BufferGeometry {
+/** Every box edge of every part in the group, in one buffer. */
+function buildEdgeGeometry(parts: readonly PartInstance[], start: number, count: number): BufferGeometry {
   const source = UNIT_EDGES.getAttribute('position');
   const stride = source.count * 3;
-  const positions = new Float32Array(parts.length * stride);
+  const available = Math.max(0, Math.min(count, parts.length - start));
+  const positions = new Float32Array(available * stride);
   const local = new Matrix4();
-  const offset = new Vector3();
 
-  for (let p = 0; p < parts.length; p++) {
-    const part = parts[p];
-    offset.set(0, 0, 0);
-    local.compose(offset, QUAT, SCALE.set(part.size[0], part.size[1], part.size[2]));
-    local.setPosition(...part.position);
+  for (let p = 0; p < available; p++) {
+    const part = parts[start + p];
+    if (!part) continue;
+    EULER.set(part.rotation[0], part.rotation[1], part.rotation[2]);
+    local.compose(OFFSET.set(...part.position), QUAT.setFromEuler(EULER), SCALE.set(part.size[0], part.size[1], part.size[2]));
     const base = p * stride;
     for (let v = 0; v < source.count; v++) {
       POSITION.fromBufferAttribute(source as BufferAttribute, v).applyMatrix4(local);
@@ -257,9 +318,10 @@ function buildEdgeGeometry(parts: readonly PartInstance[]): BufferGeometry {
 /** Anchors the entrance animation so elements grow out of the ground, not out of their centre. */
 function composePartMatrix(part: PartInstance, scale: number, target: Matrix4): void {
   const s = Math.max(0.0001, scale);
+  EULER.set(part.rotation[0], part.rotation[1], part.rotation[2]);
   POSITION.set(part.position[0], part.position[1] - (part.size[1] / 2) * (1 - s), part.position[2]);
   SCALE.set(part.size[0] * s, part.size[1] * s, part.size[2] * s);
-  target.compose(POSITION, QUAT.identity(), SCALE);
+  target.compose(POSITION, QUAT.setFromEuler(EULER), SCALE);
 }
 
 function clamp01(value: number): number {

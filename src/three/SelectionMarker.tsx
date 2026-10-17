@@ -16,6 +16,7 @@ export function SelectionMarker() {
   const objects = useSceneStore((s) => s.objects);
   const accentColor = useLookStore((s) => s.accentColor);
   const reducedMotion = useUiStore((s) => s.reducedMotion);
+  const phase = useUiStore((s) => s.phase);
   const invalidate = useThree((s) => s.invalidate);
 
   const edges = useRef<import('three').LineSegments>(null);
@@ -24,7 +25,8 @@ export function SelectionMarker() {
   const object = useMemo(() => objects.find((o) => o.id === selection) ?? null, [objects, selection]);
 
   useFrame((state) => {
-    if (!object || reducedMotion) return;
+    // The pulse is a studio affordance: nothing breathes behind the title sequence.
+    if (!object || reducedMotion || phase !== 'studio') return;
     // A very slow breath keeps the selection findable without pulling the eye.
     const value = 0.62 + 0.28 * (0.5 + 0.5 * Math.sin(state.clock.elapsedTime * 1.7));
     if (edges.current) (edges.current.material as LineBasicMaterial).opacity = value;

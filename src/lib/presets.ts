@@ -1,14 +1,11 @@
-import type { LightingModeId, MaterialPresetId, ObjectKind, QualityMode, Vec3 } from '@/types/scene';
+import type { LightingModeId, MaterialPresetId, ObjectKind, QualityMode, Tone, Vec3 } from '@/types/scene';
 
 /* ------------------------------------------------------------------ */
 /* Material presets                                                    */
 /* ------------------------------------------------------------------ */
 
-export interface MaterialPreset {
-  id: MaterialPresetId;
-  name: string;
-  /** Shown in the UI as a technical caption. */
-  note: string;
+/** One material family inside a preset. */
+export interface ToneMaterial {
   color: string;
   roughness: number;
   metalness: number;
@@ -16,11 +13,22 @@ export interface MaterialPreset {
   clearcoatRoughness: number;
   transparent: boolean;
   opacity: number;
-  /** Line colour of the edge overlay used by transparent presets. */
+  envMapIntensity: number;
+}
+
+export interface MaterialPreset {
+  id: MaterialPresetId;
+  name: string;
+  /** Shown in the UI as a technical caption. */
+  note: string;
+  /**
+   * Three families per preset. The value hierarchy between them — dark base, light masses,
+   * bright accent — is what gives an image depth; a single material reads as a grey blob.
+   */
+  tones: Record<Tone, ToneMaterial>;
+  /** Line colour of the edge overlay used by transparent families. */
   edge: string;
   edgeOpacity: number;
-  /** Extra emissive on the accent light source, not on the geometry. */
-  envMapIntensity: number;
   ground: {
     color: string;
     roughness: number;
@@ -35,16 +43,13 @@ export const MATERIAL_PRESETS: Record<MaterialPresetId, MaterialPreset> = {
     id: 'brutalism',
     name: 'BRUTALISM',
     note: 'MATTE CONCRETE / SIDE LIGHT',
-    color: '#b6b3ac',
-    roughness: 0.94,
-    metalness: 0.0,
-    clearcoat: 0.0,
-    clearcoatRoughness: 0.6,
-    transparent: false,
-    opacity: 1,
+    tones: {
+      base: { color: '#4f4d49', roughness: 0.96, metalness: 0, clearcoat: 0, clearcoatRoughness: 0.6, transparent: false, opacity: 1, envMapIntensity: 0.4 },
+      mass: { color: '#bab7af', roughness: 0.93, metalness: 0, clearcoat: 0, clearcoatRoughness: 0.6, transparent: false, opacity: 1, envMapIntensity: 0.55 },
+      accent: { color: '#dedad2', roughness: 0.6, metalness: 0.05, clearcoat: 0.12, clearcoatRoughness: 0.4, transparent: false, opacity: 1, envMapIntensity: 0.9 },
+    },
     edge: '#6f6c66',
     edgeOpacity: 0.35,
-    envMapIntensity: 0.55,
     ground: { color: '#b9b6ae', roughness: 0.98, metalness: 0 },
     grid: { color: '#6f6c66' },
     accentIntensity: 0.35,
@@ -53,17 +58,16 @@ export const MATERIAL_PRESETS: Record<MaterialPresetId, MaterialPreset> = {
     id: 'glass',
     name: 'GLASS',
     note: 'TRANSLUCENT / SOFT ENVIRONMENT',
-    color: '#c9d6db',
-    roughness: 0.06,
-    metalness: 0.0,
-    clearcoat: 1,
-    clearcoatRoughness: 0.04,
-    transparent: true,
-    opacity: 0.4,
+    tones: {
+      base: { color: '#8d989e', roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06, transparent: true, opacity: 0.46, envMapIntensity: 1.4 },
+      mass: { color: '#c9d6db', roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04, transparent: true, opacity: 0.38, envMapIntensity: 1.75 },
+      accent: { color: '#eef3f5', roughness: 0.03, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, transparent: true, opacity: 0.26, envMapIntensity: 2.1 },
+    },
     // Mid grey reads against both the white of Day and the black of Night.
+    // Kept light: three families each draw their own edges, and a heavier line turns the
+    // composition into a wireframe tangle.
     edge: '#4d585e',
-    edgeOpacity: 0.5,
-    envMapIntensity: 1.75,
+    edgeOpacity: 0.34,
     ground: { color: '#cfd4d6', roughness: 0.42, metalness: 0.1 },
     grid: { color: '#8a9499' },
     accentIntensity: 0.7,
@@ -72,16 +76,13 @@ export const MATERIAL_PRESETS: Record<MaterialPresetId, MaterialPreset> = {
     id: 'monolith',
     name: 'MONOLITH',
     note: 'DARK STONE / DRAMATIC SHADOW',
-    color: '#26282b',
-    roughness: 0.38,
-    metalness: 0.18,
-    clearcoat: 0.25,
-    clearcoatRoughness: 0.35,
-    transparent: false,
-    opacity: 1,
+    tones: {
+      base: { color: '#101113', roughness: 0.85, metalness: 0.05, clearcoat: 0, clearcoatRoughness: 0.5, transparent: false, opacity: 1, envMapIntensity: 0.35 },
+      mass: { color: '#2c2f33', roughness: 0.38, metalness: 0.18, clearcoat: 0.25, clearcoatRoughness: 0.35, transparent: false, opacity: 1, envMapIntensity: 0.7 },
+      accent: { color: '#9aa1a7', roughness: 0.16, metalness: 0.42, clearcoat: 0.4, clearcoatRoughness: 0.2, transparent: false, opacity: 1, envMapIntensity: 1.25 },
+    },
     edge: '#9aa0a6',
     edgeOpacity: 0.35,
-    envMapIntensity: 0.7,
     ground: { color: '#16181a', roughness: 0.72, metalness: 0.05 },
     grid: { color: '#4c5157' },
     accentIntensity: 1.35,
@@ -108,6 +109,13 @@ export interface LightingMode {
   envIntensity: number;
   /** Scale applied to the scene fog density coming from the environment controls. */
   fogScale: number;
+  /**
+   * Vertical gradient behind the composition. Three stops, sampled top to bottom.
+   * A flat background reads as an empty buffer; a gradient reads as air.
+   */
+  sky: { top: string; middle: string; bottom: string };
+  /** Strength of the contact shadow directly under each mass, 0 disables it. */
+  contactStrength: number;
 }
 
 export const LIGHTING_MODES: Record<LightingModeId, LightingMode> = {
@@ -118,12 +126,15 @@ export const LIGHTING_MODES: Record<LightingModeId, LightingMode> = {
     background: '#d8d6d1',
     fogColor: '#d8d6d1',
     exposure: 1.05,
-    key: { color: '#fff6e8', intensity: 3.4, position: [9, 14, 7] },
-    fill: { color: '#cfe0f2', intensity: 0.85, position: [-11, 7, -6] },
-    ambient: { color: '#e9ecef', intensity: 0.62 },
-    rim: { color: '#ffffff', intensity: 0.7, position: [-4, 5, -12] },
+    key: { color: '#fff4e2', intensity: 4.2, position: [9, 14, 7] },
+    fill: { color: '#bcd4ee', intensity: 0.55, position: [-11, 7, -6] },
+    // Day ambient stays low: the sky is bright, the shadows are still deep.
+    ambient: { color: '#dfe6ec', intensity: 0.4 },
+    rim: { color: '#ffffff', intensity: 0.85, position: [-4, 5, -12] },
     envIntensity: 0.85,
     fogScale: 1,
+    sky: { top: '#a8b6c4', middle: '#d5d9dc', bottom: '#c9c4bb' },
+    contactStrength: 0.55,
   },
   dusk: {
     id: 'dusk',
@@ -134,12 +145,14 @@ export const LIGHTING_MODES: Record<LightingModeId, LightingMode> = {
     exposure: 0.96,
     // Warm but restrained: concrete has to stay concrete. The dusk reading comes from the
     // contrast with the cold ambient and the low angle, not from an orange filter.
-    key: { color: '#f2e6d8', intensity: 2.6, position: [13, 4.2, 4] },
-    fill: { color: '#7ea0cc', intensity: 0.95, position: [-9, 6, -8] },
-    ambient: { color: '#5d6876', intensity: 0.36 },
-    rim: { color: '#a8c0dd', intensity: 1.0, position: [-6, 7, -13] },
+    key: { color: '#ffe3c0', intensity: 3.6, position: [13, 3.4, 4] },
+    fill: { color: '#6d90c4', intensity: 0.7, position: [-9, 6, -8] },
+    ambient: { color: '#4c5866', intensity: 0.24 },
+    rim: { color: '#a8c0dd', intensity: 1.5, position: [-6, 7, -13] },
     envIntensity: 0.7,
     fogScale: 1.15,
+    sky: { top: '#141821', middle: '#2c2a2a', bottom: '#6b5a49' },
+    contactStrength: 0.8,
   },
   night: {
     id: 'night',
@@ -148,12 +161,15 @@ export const LIGHTING_MODES: Record<LightingModeId, LightingMode> = {
     background: '#08090b',
     fogColor: '#0a0c0f',
     exposure: 1.12,
-    key: { color: '#b9cfe6', intensity: 1.85, position: [-6, 12, -7] },
-    fill: { color: '#2b3a4d', intensity: 0.45, position: [10, 4, 6] },
-    ambient: { color: '#414c5a', intensity: 0.3 },
-    rim: { color: '#7f97b5', intensity: 0.65, position: [7, 9, 11] },
+    key: { color: '#cfe0f2', intensity: 2.6, position: [-6, 12, -7] },
+    fill: { color: '#26364a', intensity: 0.4, position: [10, 4, 6] },
+    ambient: { color: '#33404f', intensity: 0.22 },
+    // A bright back light is what makes stone read against a black sky.
+    rim: { color: '#8fabd0', intensity: 1.3, position: [7, 9, 11] },
     envIntensity: 0.42,
     fogScale: 1.35,
+    sky: { top: '#05070c', middle: '#0b1018', bottom: '#171c24' },
+    contactStrength: 0.95,
   },
 };
 

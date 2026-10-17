@@ -23,6 +23,12 @@ page.on('console', (msg) => {
 page.on('pageerror', (err) => messages.push(`[pageerror] ${err.message}`));
 
 await page.goto(url, { waitUntil: 'networkidle' });
+// Dismiss the title sequence: these shots are of the studio, not the poster.
+const gate = page.getByRole('button', { name: /enter studio/i });
+if (await gate.isVisible({ timeout: 8000 }).catch(() => false)) {
+  await gate.click();
+  await page.locator('.topbar').waitFor({ state: 'visible', timeout: 15_000 });
+}
 await page.waitForTimeout(2500);
 
 for (const shot of shots) {

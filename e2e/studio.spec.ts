@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { collectConsoleErrors, generateAndSettle, readObjectCount, selectSomething, settleCamera, waitForScene } from './helpers';
+import { changedPixelFraction, collectConsoleErrors, countDrawsWhile, generateAndSettle, installDrawCounter, openStudio, readDrawCount, readObjectCount, resetDrawCount, selectSomething, settleCamera, waitForQuietScene } from './helpers';
 
 test.describe('AFTERFORM studio', () => {
   test('boots into a rendered composition without console errors', async ({ page }) => {
     const errors = collectConsoleErrors(page);
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
 
     await expect(page.getByRole('heading', { name: /afterform/i }).or(page.locator('.brand__name'))).toBeVisible();
     await expect(page.locator('.brand__name')).toHaveText('AFTERFORM');
@@ -16,7 +16,7 @@ test.describe('AFTERFORM studio', () => {
 
   test('generate produces a new composition and the seed reproduces it exactly', async ({ page }) => {
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
     const before = await readObjectCount(page);
 
     await generateAndSettle(page);
@@ -42,7 +42,7 @@ test.describe('AFTERFORM studio', () => {
 
   test('selects, moves, nudges and deletes an element', async ({ page }) => {
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
 
     const before = await readObjectCount(page);
     await page.getByRole('button', { name: 'Add column' }).click();
@@ -86,7 +86,7 @@ test.describe('AFTERFORM studio', () => {
 
   test('dragging a selected element moves it in the scene', async ({ page }) => {
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
     await settleCamera(page);
 
     const selection = await selectSomething(page);
@@ -116,7 +116,7 @@ test.describe('AFTERFORM studio', () => {
 
   test('undo and redo restore edits', async ({ page }) => {
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
     const before = await readObjectCount(page);
 
     await page.getByRole('button', { name: 'Add block' }).click();
@@ -138,12 +138,16 @@ test.describe('AFTERFORM studio', () => {
 
   test('every material preset and lighting mode changes the picture', async ({ page }) => {
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
 
     // The canvas is composited, so screenshots are the only faithful read of what was drawn.
+    // The capture timeout is generous because software rendering can take a minute.
     const sample = async () => {
       const box = (await page.locator('canvas').boundingBox())!;
-      return page.screenshot({ clip: { x: box.x + box.width * 0.25, y: box.y + box.height * 0.25, width: 220, height: 160 } });
+      return page.screenshot({
+        timeout: 120_000,
+        clip: { x: box.x + box.width * 0.25, y: box.y + box.height * 0.25, width: 220, height: 160 },
+      });
     };
 
     const materialShots = new Map<string, Buffer>();
@@ -170,7 +174,7 @@ test.describe('AFTERFORM studio', () => {
 
   test('geometry sliders reshape the composition live', async ({ page }) => {
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
 
     const height = page.locator('.panel--right input[type=range]').first();
     await height.fill('0.05');
@@ -186,9 +190,10 @@ test.describe('AFTERFORM studio', () => {
 
   test('exports a PNG of the current scene', async ({ page }) => {
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
 
-    const download = page.waitForEvent('download', { timeout: 30_000 });
+    // A 2× capture of a 150-element composition is slow under software rendering.
+    const download = page.waitForEvent('download', { timeout: 120_000 });
     await page.getByRole('button', { name: 'Export PNG' }).click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/\.png$/);
@@ -205,7 +210,7 @@ test.describe('AFTERFORM studio', () => {
 
   test('saves and reloads a composition as JSON', async ({ page }) => {
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
 
     await page.getByRole('button', { name: 'Add frame' }).click();
     await page.waitForTimeout(200);
@@ -232,7 +237,7 @@ test.describe('AFTERFORM studio', () => {
 
   test('rejects a malformed JSON file with a readable message', async ({ page }) => {
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
     const before = await readObjectCount(page);
 
     await page.locator('input[type=file]').setInputFiles({
@@ -248,7 +253,7 @@ test.describe('AFTERFORM studio', () => {
 
   test('supports the keyboard shortcuts of the studio', async ({ page }) => {
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
 
     await page.keyboard.press('g');
     await page.waitForTimeout(800);
@@ -269,7 +274,7 @@ test.describe('AFTERFORM studio', () => {
 
   test('every control is reachable and labelled', async ({ page }) => {
     await page.goto('/');
-    await waitForScene(page);
+    await openStudio(page);
 
     const unlabelled = await page.evaluate(() => {
       const controls = [...document.querySelectorAll('button, input, [role=slider]')];
@@ -293,5 +298,83 @@ test.describe('AFTERFORM studio', () => {
     await page.keyboard.press('Tab');
     const focused = await page.evaluate(() => document.activeElement?.tagName ?? '');
     expect(focused).not.toBe('BODY');
+  });
+
+  test('the camera holds still while the user is watching', async ({ page }) => {
+    // Software rendering makes the first paint alone eat most of a default budget.
+    test.setTimeout(180_000);
+    await installDrawCounter(page);
+    await page.goto('/');
+    await openStudio(page);
+    await settleCamera(page);
+
+    // Moving the pointer over the canvas is presence without consequence: it resets the idle
+    // clock and changes nothing in the scene. Without it a slow machine crosses the drift
+    // threshold mid-test and fails for the wrong reason — the drift is meant to be running.
+    const box = (await page.locator('canvas').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await waitForQuietScene(page);
+
+    // The render loop is on demand: a still composition must not keep submitting frames.
+    // A rendering-at-60fps scene issues well over a thousand draws in this window. A few
+    // frames are still expected while the glide's damping settles, hence the generous bound.
+    // (Pixel-level stillness is pinned by the title-sequence test, where nothing ever moves.)
+    expect(await countDrawsWhile(page, 2000), 'the scene must not render itself while the user is watching').toBeLessThan(60);
+  });
+
+  test('a drag is activity: it keeps the scene rendering', async ({ page }) => {
+    test.setTimeout(180_000);
+    await installDrawCounter(page);
+    await page.goto('/');
+    await openStudio(page);
+    await settleCamera(page);
+    await waitForQuietScene(page);
+
+    const box = (await page.locator('canvas').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // Count across the drag itself, not after it: by the time the drag ends the scene has
+    // settled again and the frames it caused would already be behind us.
+    await resetDrawCount(page);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 70, box.y + box.height / 2, { steps: 10 });
+    await page.mouse.up();
+
+    expect(await readDrawCount(page), 'orbiting must produce frames').toBeGreaterThan(0);
+  });
+
+  // Waiting out the idle delay is the behaviour under test, so these two need their own budget
+  // and a small viewport: software rendering makes a full-width canvas far slower than the
+  // idle clock, which is what they are waiting on.
+  test('the camera drifts once the user goes idle', async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 520, height: 380 });
+    await page.goto('/');
+    await openStudio(page);
+    await settleCamera(page);
+    await page.waitForTimeout(1200);
+
+    // Detected by pixels, not by reaching into the renderer: the drift has to be visible,
+    // not merely configured.
+    const first = await page.locator('canvas').screenshot();
+    await page.waitForTimeout(16_000);
+    const second = await page.locator('canvas').screenshot();
+    const changed = await changedPixelFraction(page, first, second);
+    expect(changed, 'the camera must drift after the idle delay').toBeGreaterThan(0.001);
+  });
+
+  test('the idle drift is off under prefers-reduced-motion', async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 520, height: 380 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    await openStudio(page);
+    await settleCamera(page);
+    await page.waitForTimeout(1200);
+
+    const first = await page.locator('canvas').screenshot();
+    await page.waitForTimeout(16_000);
+    const second = await page.locator('canvas').screenshot();
+    const changed = await changedPixelFraction(page, first, second);
+    expect(changed, 'no motion may be generated').toBeLessThan(0.001);
   });
 });

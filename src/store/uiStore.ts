@@ -9,8 +9,13 @@ export interface Toast {
   kind: ToastKind;
 }
 
+export type Phase = 'intro' | 'leaving' | 'studio';
+
 interface UiState {
   tool: Tool;
+  /** Title sequence → cross-fade → studio. The chrome only appears in `studio`. */
+  phase: Phase;
+  setPhase: (phase: Phase) => void;
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
   /** Bumped to ask the canvas for a PNG; handled inside the render tree. */
@@ -35,6 +40,8 @@ let toastId = 0;
 
 export const useUiStore = create<UiState>()((set, get) => ({
   tool: 'select',
+  phase: 'studio',
+  setPhase: (phase) => set({ phase }),
   leftPanelOpen: true,
   rightPanelOpen: true,
   exportRequest: 0,

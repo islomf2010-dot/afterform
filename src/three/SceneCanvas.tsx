@@ -33,9 +33,11 @@ export function SceneCanvas() {
         depth: true,
       }}
       camera={{ fov: 38, near: 0.4, far: 400, position: [22, 14, 22] }}
-      onCreated={({ gl }) => {
-        gl.toneMapping = ACESFilmicToneMapping;
-        gl.toneMappingExposure = 1;
+      onCreated={(state) => {
+        state.gl.toneMapping = ACESFilmicToneMapping;
+        state.gl.toneMappingExposure = 1;
+        // Dev-only handle for the preview and audit tools in scripts/.
+        if (import.meta.env.DEV) (window as unknown as { __afterformScene?: unknown }).__afterformScene = state;
       }}
       onPointerMissed={() => select(null)}
     >

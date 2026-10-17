@@ -10,9 +10,10 @@ import type {
   ObjectKind,
   ProjectFile,
   QualityMode,
+  Tone,
   Vec3,
 } from '@/types/scene';
-import { OBJECT_KINDS } from '@/types/scene';
+import { OBJECT_KINDS, TONES } from '@/types/scene';
 
 export const FILE_FORMAT = 'afterform.composition';
 export const FILE_VERSION = 1 as const;
@@ -144,7 +145,17 @@ function parseObject(value: unknown, fallbackIndex: number): ArchObject | null {
   if (size[0] < 0.02 || size[1] < 0.02 || size[2] < 0.02) return null;
 
   const id = typeof value.id === 'string' && value.id.length > 0 && value.id.length <= 64 ? value.id : `imported-${fallbackIndex}`;
-  return { id: sanitiseId(id, fallbackIndex), kind: kind as ObjectKind, position, size };
+  const rotation = parseVec(value.rotation, Math.PI);
+  const tone = TONES.includes(value.tone as Tone) ? (value.tone as Tone) : 'mass';
+
+  return {
+    id: sanitiseId(id, fallbackIndex),
+    kind: kind as ObjectKind,
+    position,
+    size,
+    ...(rotation ? { rotation } : {}),
+    tone,
+  };
 }
 
 function parseLook(value: unknown): LookState | null {
@@ -171,12 +182,12 @@ function readRange(value: unknown, min: number, max: number, fallback: number): 
   return clamp(value, min, max);
 }
 
-function parseVec(value: unknown): Vec3 | null {
+function parseVec(value: unknown, limit: number = LIMITS.size[1]): Vec3 | null {
   if (!Array.isArray(value) || value.length !== 3) return null;
   const out: number[] = [];
   for (const item of value) {
     if (typeof item !== 'number' || !Number.isFinite(item)) return null;
-    out.push(clamp(item, LIMITS.size[0], LIMITS.size[1]));
+    out.push(clamp(item, -limit, limit));
   }
   return out as Vec3;
 }

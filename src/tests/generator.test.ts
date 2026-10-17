@@ -136,7 +136,56 @@ describe('parts', () => {
 
   it('keeps solid elements as a single part', () => {
     const block: ArchObject = { id: 'b', kind: 'block', position: [1, 2, 3], size: [1, 1, 1] };
-    expect(objectParts(block)).toEqual([{ position: [1, 2, 3], size: [1, 1, 1] }]);
+    expect(objectParts(block)).toEqual([{ position: [1, 2, 3], size: [1, 1, 1], rotation: [0, 0, 0], tone: 'mass' }]);
+  });
+
+  it('assigns every element a material family, and more than one', () => {
+  const composition = generateComposition(params({ seed: 'TONES', complexity: 1 }));
+  const tones = new Set(composition.objects.map((o) => o.tone));
+  expect([...tones].sort()).toEqual(['accent', 'base', 'mass']);
+  // The dark family has to stay a minority or the image loses its value hierarchy.
+  const base = composition.objects.filter((o) => o.tone === 'base').length;
+  expect(base / composition.objects.length).toBeLessThan(0.3);
+});
+
+it('puts the enclosing wall in the mass family, not the dark one', () => {
+  // A black slab around the site fights the composition it is supposed to contain.
+  // The wall is the long thin block standing at the edge of the plate.
+  const composition = generateComposition(params({ seed: 'WALL', complexity: 1 }));
+  const bounds = computeBounds(composition.objects);
+  const edge = Math.max(bounds.max[0], bounds.max[2]);
+  const walls = composition.objects.filter(
+    (o) => o.kind === 'block' && Math.min(o.size[0], o.size[2]) < 0.4 && Math.max(o.size[0], o.size[2]) > 1.8 && Math.abs(o.position[0]) + Math.abs(o.position[2]) > edge * 0.8,
+  );
+  expect(walls.length).toBeGreaterThan(0);
+  expect(walls.every((o) => o.tone === 'mass')).toBe(true);
+});
+
+it('cuts openings into the facades of tall masses', () => {
+  const composition = generateComposition(params({ seed: 'REVEALS', complexity: 1, height: 0.8 }));
+  // Reveals are thin dark bands pressed against a facade: long in plan, shallow in depth.
+  const bands = composition.objects.filter((o) => o.tone === 'base' && Math.min(o.size[0], o.size[2]) < 0.12 && o.position[1] > 1.2);
+  expect(bands.length).toBeGreaterThan(2);
+});
+
+it('builds at least one arch with rotated voussoirs', () => {
+  const found = Array.from({ length: 12 }, (_, i) => generateComposition(params({ seed: `ARCH${i}`, complexity: 1 })))
+    .flatMap((composition) => composition.objects)
+    .filter((o) => o.rotation && (Math.abs(o.rotation[0]) > 0.01 || Math.abs(o.rotation[1]) > 0.01));
+  expect(found.length).toBeGreaterThan(3);
+});
+
+it('includes human scale figures so the architecture has a size', () => {
+  const composition = generateComposition(params({ seed: 'SCALE', density: 1 }));
+  const figures = composition.objects.filter((o) => o.kind === 'column' && o.size[1] > 1.6 && o.size[1] < 1.9 && o.size[0] < 0.14);
+  expect(figures.length).toBeGreaterThan(0);
+});
+
+it('carries rotation and tone through to the parts', () => {
+    const arch: ArchObject = { id: 'a', kind: 'block', position: [0, 1, 0], size: [0.4, 0.4, 0.4], rotation: [0, Math.PI / 2, 0], tone: 'accent' };
+    const [part] = objectParts(arch);
+    expect(part.rotation).toEqual([0, Math.PI / 2, 0]);
+    expect(part.tone).toBe('accent');
   });
 
   it('splits a frame into two posts and a lintel', () => {

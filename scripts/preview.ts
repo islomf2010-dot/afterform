@@ -41,7 +41,20 @@ function boxFaces(o: ArchObject): Face[] {
   const hx = o.size[0] / 2;
   const hy = o.size[1] / 2;
   const hz = o.size[2] / 2;
-  const corner = (sx: number, sy: number, sz: number): Vec3 => [cx + sx * hx, cy + sy * hy, cz + sz * hz];
+  const corner = (sx: number, sy: number, sz: number): Vec3 => {
+    const local: Vec3 = [sx * hx, sy * hy, sz * hz];
+    const rot = o.rotation ?? [0, 0, 0];
+    const [rx, ry, rz] = rot;
+    // Euler XYZ, matching the renderer.
+    const cx1 = local[0] * Math.cos(ry) + local[2] * Math.sin(ry);
+    const cz1 = -local[0] * Math.sin(ry) + local[2] * Math.cos(ry);
+    const cy2 = local[1] * Math.cos(rx) - cz1 * Math.sin(rx);
+    const cz2 = local[1] * Math.sin(rx) + cz1 * Math.cos(rx);
+    const cx3 = cx1 * Math.cos(rz) - cy2 * Math.sin(rz);
+    const cy3 = cx1 * Math.sin(rz) + cy2 * Math.cos(rz);
+    return [cx + cx3, cy + cy3, cz + cz2];
+  };
+  const tone = TONE_SHADE[o.tone ?? 'mass'];
 
   const faces: Face[] = [
     // top
@@ -56,7 +69,7 @@ function boxFaces(o: ArchObject): Face[] {
     const pts = f.pts.map(project);
     return {
       points: pts.map((p) => [p.x, p.y] as [number, number]),
-      shade: f.shade,
+      shade: f.shade * tone,
       depth: pts.reduce((acc, p) => acc + p.depth, 0) / pts.length,
     };
   });
@@ -80,6 +93,8 @@ function frameFaces(o: ArchObject): Face[] {
   ];
   return parts.flatMap(boxFaces);
 }
+
+const TONE_SHADE = { base: 0.42, mass: 1, accent: 1.22 } as const;
 
 function renderToSvg(objects: readonly ArchObject[], width = 1400, height = 1000): string {
   const faces = objects.flatMap(boxFaces).sort((a, b) => a.depth - b.depth);

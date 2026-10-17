@@ -16,7 +16,7 @@ export function MaterialControls() {
           value: id,
           label: MATERIAL_PRESETS[id].name,
           note: MATERIAL_PRESETS[id].note,
-          swatch: MATERIAL_PRESETS[id].color,
+          swatch: MATERIAL_PRESETS[id].tones.mass.color,
         }))}
       />
     </Section>

@@ -1,20 +1,27 @@
-import type { ArchObject, Vec3 } from '@/types/scene';
+import type { ArchObject, Tone, Vec3 } from '@/types/scene';
 
 export interface Part {
   /** Centre of the box part in world space. */
   position: Vec3;
   size: Vec3;
+  /** Euler angles in radians — identity for the orthogonal bulk of a composition. */
+  rotation: Vec3;
+  tone: Tone;
 }
 
 const MIN_POST = 0.14;
 const MAX_POST = 0.5;
+const ZERO: Vec3 = [0, 0, 0];
 
 /**
  * Splits an element into axis aligned box parts.
  * Everything in AFTERFORM is made of boxes, which is what makes instancing possible.
  */
 export function objectParts(object: ArchObject): Part[] {
-  if (object.kind !== 'frame') return [{ position: object.position, size: object.size }];
+  const tone: Tone = object.tone ?? 'mass';
+  const rotation = object.rotation ?? ZERO;
+
+  if (object.kind !== 'frame') return [{ position: object.position, size: object.size, rotation, tone }];
 
   const [cx, cy, cz] = object.position;
   const [w, h, d] = object.size;
@@ -22,11 +29,11 @@ export function objectParts(object: ArchObject): Part[] {
 
   return [
     // left post
-    { position: [cx - w / 2 + t / 2, cy, cz], size: [t, h, d] },
+    { position: [cx - w / 2 + t / 2, cy, cz], size: [t, h, d], rotation, tone },
     // right post
-    { position: [cx + w / 2 - t / 2, cy, cz], size: [t, h, d] },
+    { position: [cx + w / 2 - t / 2, cy, cz], size: [t, h, d], rotation, tone },
     // lintel
-    { position: [cx, cy + h / 2 - t / 2, cz], size: [w, t, d] },
+    { position: [cx, cy + h / 2 - t / 2, cz], size: [w, t, d], rotation, tone },
   ];
 }
 

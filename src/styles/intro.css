@@ -1,0 +1,233 @@
+/* ------------------------------------------------------------------ */
+/* Title sequence                                                      */
+/* ------------------------------------------------------------------ */
+
+/* During the intro the canvas is the whole screen: no bars, no vignette. */
+.app--intro {
+  grid-template-rows: 0 1fr 0 0;
+}
+
+.app--intro::after {
+  opacity: 0;
+}
+
+.app--intro .canvas-region {
+  grid-area: 1 / 1 / 5 / 4;
+}
+
+.intro {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  animation: intro-in var(--dur-slow) var(--ease) both;
+}
+
+.intro--leaving {
+  animation: intro-out var(--dur-slow) var(--ease) both;
+  pointer-events: none;
+}
+
+/* A soft scrim: enough to hold the type, not enough to hide the architecture behind it. */
+/*
+ * A scrim, not a curtain. The architecture behind the wordmark is the point of the screen,
+ * so the veil only darkens enough to hold the type — and it darkens most where the type is.
+ */
+.intro__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(58% 46% at 50% 48%, rgba(6, 7, 8, 0.72) 0%, rgba(6, 7, 8, 0.5) 52%, rgba(6, 7, 8, 0.12) 100%),
+    linear-gradient(to bottom, rgba(6, 7, 8, 0.5) 0%, transparent 26%, transparent 72%, rgba(6, 7, 8, 0.62) 100%);
+  backdrop-filter: blur(1.5px) saturate(108%);
+  -webkit-backdrop-filter: blur(1.5px) saturate(108%);
+  animation: intro-veil var(--dur-slow) var(--ease) both;
+}
+
+.intro__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 24px;
+}
+
+.intro__eyebrow {
+  color: var(--text-faint);
+  margin-bottom: 22px;
+  animation: intro-rise 700ms var(--ease) 120ms both;
+}
+
+.intro__title {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 0;
+  font-size: clamp(30px, 7.4vw, 76px);
+  font-weight: 300;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  line-height: 1;
+  /* A shadow rather than a plate: the type stays legible without hiding the scene. */
+  color: #fff;
+  text-shadow: 0 2px 34px rgba(0, 0, 0, 0.75), 0 1px 3px rgba(0, 0, 0, 0.5);
+  animation: intro-title 1100ms var(--ease) 60ms both;
+}
+
+.intro__title-mark {
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  box-shadow: 0 0 26px var(--accent-soft), 0 0 3px rgba(0, 0, 0, 0.6);
+  flex-shrink: 0;
+}
+
+.intro__tagline {
+  margin-top: 20px;
+  font-size: clamp(12px, 1.5vw, 15px);
+  font-weight: 300;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.8);
+  animation: intro-rise 700ms var(--ease) 320ms both;
+}
+
+.intro__enter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 46px;
+  height: 44px;
+  padding: 0 22px;
+  border: 1px solid rgba(236, 234, 231, 0.42);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(6, 7, 8, 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: border-color var(--dur-base) var(--ease), background var(--dur-base) var(--ease), color var(--dur-base) var(--ease);
+  animation: intro-rise 700ms var(--ease) 440ms both;
+}
+
+.intro__enter:hover,
+.intro__enter:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(6, 7, 8, 0.62);
+}
+
+.intro__enter svg {
+  transition: transform var(--dur-base) var(--ease);
+}
+
+.intro__enter:hover svg {
+  transform: translateX(3px);
+}
+
+.intro__hint {
+  margin-top: 18px;
+  color: var(--text-dim);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.85);
+  animation: intro-rise 700ms var(--ease) 560ms both;
+}
+
+.intro__meta {
+  position: absolute;
+  bottom: 26px;
+  display: flex;
+  gap: 26px;
+  color: var(--text-dim);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.85);
+  animation: intro-rise 700ms var(--ease) 680ms both;
+}
+
+.intro__meta span {
+  position: relative;
+}
+
+.intro__meta span + span::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin-top: -1.5px;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+@keyframes intro-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes intro-veil {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes intro-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes intro-title {
+  from {
+    opacity: 0;
+    letter-spacing: 0.52em;
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    letter-spacing: 0.3em;
+    filter: blur(0);
+  }
+}
+
+@keyframes intro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro,
+  .intro__veil,
+  .intro__title,
+  .intro__tagline,
+  .intro__eyebrow,
+  .intro__enter,
+  .intro__hint,
+  .intro__meta {
+    animation: none !important;
+  }
+}

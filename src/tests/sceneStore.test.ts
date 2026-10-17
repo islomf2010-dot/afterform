@@ -84,11 +84,12 @@ describe('scene store', () => {
   });
 
   it('undoes a delete of a generated element', () => {
-    const before = store().objects.length;
+    const before = store().objects;
+    const fingerprint = before.map((o) => o.position.join()).join('|');
     store().generate({ seed: 'UNDO' });
-    expect(store().objects.length).not.toBe(before);
+    expect(store().objects.map((o) => o.position.join()).join('|')).not.toBe(fingerprint);
     store().undo();
-    expect(store().objects.length).toBe(before);
+    expect(store().objects.map((o) => o.position.join()).join('|')).toBe(fingerprint);
   });
 
   it('clears the selection when the selected element disappears through undo', () => {
@@ -101,17 +102,20 @@ describe('scene store', () => {
 
   it('keeps the seed when parameters change, and keeps history clean', () => {
     store().generate({ seed: 'STABLE' });
-    const before = store().objects.length;
+    // Structural fingerprint, not a count: two different compositions can legitimately
+    // contain the same number of elements.
+    const fingerprint = () => store().objects.map((o) => `${o.position.join()}/${o.size.join()}`).join('|');
+    const before = fingerprint();
     const past = store().past.length;
 
     store().setParams({ height: 0.9 });
     expect(store().seed).toBe('STABLE');
-    expect(store().objects.length).not.toBe(before);
+    expect(fingerprint()).not.toBe(before);
     // Live parameter previews are not undo steps — otherwise a slider drag floods the history.
     expect(store().past.length).toBe(past);
 
     store().setParams({ height: 0.55 });
-    expect(store().objects.length).toBe(before);
+    expect(fingerprint()).toBe(before);
   });
 
   it('generates a different composition for a new seed', () => {

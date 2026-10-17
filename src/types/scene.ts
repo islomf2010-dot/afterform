@@ -11,14 +11,26 @@ export type ObjectKind = 'block' | 'column' | 'slab' | 'frame';
 export const OBJECT_KINDS: readonly ObjectKind[] = ['block', 'column', 'slab', 'frame'];
 
 /**
+ * Material family inside a preset. One composition uses all three: a dark base, the main
+ * masses, and an accent. That value hierarchy is what gives the image depth.
+ */
+export type Tone = 'base' | 'mass' | 'accent';
+
+export const TONES: readonly Tone[] = ['base', 'mass', 'accent'];
+
+/**
  * An architectural element.
  * `position` is the centre of the element's bounding box, `size` its extents in world units.
+ * `rotation` is in radians and optional — most of a composition stays on the grid, arches and
+ * braces are what break it.
  */
 export interface ArchObject {
   id: string;
   kind: ObjectKind;
   position: Vec3;
   size: Vec3;
+  rotation?: Vec3;
+  tone?: Tone;
 }
 
 /**
