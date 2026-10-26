@@ -2,6 +2,9 @@
 
 **Architecture beyond reality.**
 
+[![Live Demonstration](https://img.shields.io/badge/Live_Demo-Generative_3D_Studio-E11D48?style=for-the-badge)](https://islomf2010-dot.github.io/afterform/)
+[![Source Code](https://img.shields.io/badge/Source-GitHub-161B26?style=for-the-badge)](https://github.com/islomf2010-dot/afterform)
+
 An interactive generative architecture laboratory. Set the parameters, draw a seed, and the studio
 composes an abstract architectural study out of concrete, glass and stone — then lets you take it
 apart and rebuild it by hand.
